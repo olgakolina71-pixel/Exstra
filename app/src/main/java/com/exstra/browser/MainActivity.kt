@@ -5,6 +5,8 @@ import android.app.AlertDialog
 import android.app.DownloadManager
 import android.content.Context
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -16,7 +18,6 @@ import android.webkit.URLUtil
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.PopupMenu
@@ -28,6 +29,7 @@ class MainActivity : Activity() {
     private lateinit var address: EditText
     private lateinit var web: WebView
     private lateinit var tabLabel: TextView
+    private lateinit var progress: android.widget.ProgressBar
     private val tabs = mutableListOf<String>()
     private var current = 0
     private var engine = "Google"
@@ -39,8 +41,15 @@ class MainActivity : Activity() {
         "DuckDuckGo" to "https://duckduckgo.com/?q="
     )
 
+    private val ink = Color.rgb(17, 24, 39)
+    private val muted = Color.rgb(148, 163, 184)
+    private val accent = Color.rgb(99, 102, 241)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = Color.rgb(11, 18, 32)
+        window.navigationBarColor = Color.rgb(11, 18, 32)
+        window.decorView.systemUiVisibility = 0
         buildUi()
         restoreSession()
     }
@@ -49,43 +58,78 @@ class MainActivity : Activity() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.WHITE)
+            setPadding(0, statusBarHeight(), 0, 0)
         }
-        val bar = LinearLayout(this).apply {
+
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(ink)
+            setPadding(dp(16), dp(10), dp(16), dp(10))
+        }
+        val brandRow = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            orientation = LinearLayout.HORIZONTAL
+        }
+        val brand = TextView(this).apply {
+            text = "EXSTRA"
+            textSize = 18f
+            letterSpacing = 0.12f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+        }
+        brandRow.addView(brand, LinearLayout.LayoutParams(0, dp(32), 1f))
+        tabLabel = TextView(this).apply {
+            text = "1 TAB"
+            textSize = 11f
+            letterSpacing = 0.08f
+            setTextColor(Color.rgb(199, 210, 254))
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(7), dp(12), dp(7))
+            background = rounded(Color.rgb(39, 48, 75), 30)
+        }
+        brandRow.addView(tabLabel)
+        header.addView(brandRow)
+
+        val addressRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(6, 6, 6, 6)
+            background = rounded(Color.rgb(31, 41, 61), 16)
+            setPadding(dp(12), 0, dp(6), 0)
         }
+        val lock = TextView(this).apply {
+            text = "⌁"
+            textSize = 20f
+            setTextColor(Color.rgb(165, 180, 252))
+            gravity = Gravity.CENTER
+        }
+        addressRow.addView(lock, LinearLayout.LayoutParams(dp(28), dp(46)))
         address = EditText(this).apply {
             setSingleLine(true)
             hint = "Search or enter address"
+            setHintTextColor(Color.rgb(148, 163, 184))
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            background = null
             imeOptions = EditorInfo.IME_ACTION_GO
-            textSize = 15f
+            setPadding(dp(4), 0, dp(4), 0)
+            selectAllOnFocus = true
         }
-        bar.addView(address, LinearLayout.LayoutParams(0, dp(48), 1f))
-        bar.addView(button("GO") { navigateInput() })
-        bar.addView(button("⌕") { showEngines(it) })
-        root.addView(bar)
+        addressRow.addView(address, LinearLayout.LayoutParams(0, dp(46), 1f))
+        val engineButton = smallAction("⌄") { showEngines(it) }
+        addressRow.addView(engineButton, LinearLayout.LayoutParams(dp(38), dp(38)))
+        header.addView(addressRow, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
+        root.addView(header)
 
-        val controls = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
+        progress = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100
+            progress = 0
+            progressTintList = android.content.res.ColorStateList.valueOf(accent)
+            progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
         }
-        controls.addView(button("‹") { if (web.canGoBack()) web.goBack() })
-        controls.addView(button("›") { if (web.canGoForward()) web.goForward() })
-        controls.addView(button("↻") { web.reload() })
-        tabLabel = TextView(this).apply {
-            text = "Tabs: 1"
-            gravity = Gravity.CENTER
-            setPadding(10, 8, 10, 8)
-        }
-        controls.addView(tabLabel)
-        controls.addView(button("＋") { newTab("https://www.google.com") })
-        controls.addView(button("Tabs") { showTabs() })
-        controls.addView(button("★") { saveBookmark() })
-        controls.addView(button("CMD") { showCommandConsole() })
-        root.addView(controls)
+        root.addView(progress, LinearLayout.LayoutParams(-1, dp(2)))
 
         web = WebView(this).apply {
+            setBackgroundColor(Color.WHITE)
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.loadsImagesAutomatically = true
@@ -99,9 +143,15 @@ class MainActivity : Activity() {
                 override fun onPageFinished(view: WebView?, url: String?) {
                     address.setText(url.orEmpty())
                     updateTab()
+                    progress.progress = 100
                 }
             }
-            webChromeClient = WebChromeClient()
+            webChromeClient = object : WebChromeClient() {
+                override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                    progress.progress = newProgress
+                    progress.visibility = if (newProgress >= 100) android.view.View.GONE else android.view.View.VISIBLE
+                }
+            }
             setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
                 val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
                 val request = DownloadManager.Request(Uri.parse(url))
@@ -114,22 +164,56 @@ class MainActivity : Activity() {
             })
         }
         root.addView(web, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        val bottom = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(ink)
+            setPadding(dp(8), dp(6), dp(8), dp(6))
+        }
+        bottom.addView(bottomAction("‹", "Back") { if (web.canGoBack()) web.goBack() })
+        bottom.addView(bottomAction("›", "Forward") { if (web.canGoForward()) web.goForward() })
+        bottom.addView(bottomAction("⌂", "Home") { web.loadUrl("https://www.google.com") })
+        bottom.addView(bottomAction("＋", "New tab") { newTab("https://www.google.com") })
+        bottom.addView(bottomAction("▦", "Tabs") { showTabs() })
+        bottom.addView(bottomAction("⋯", "More") { showMore(it) })
+        root.addView(bottom, LinearLayout.LayoutParams(-1, dp(58)))
         setContentView(root)
 
         address.setOnEditorActionListener { _, action, _ ->
-            if (action == EditorInfo.IME_ACTION_GO) {
+            if (action == EditorInfo.IME_ACTION_GO || action == EditorInfo.IME_ACTION_DONE) {
                 navigateInput()
                 true
             } else false
         }
     }
 
-    private fun button(label: String, action: (Button) -> Unit): Button =
-        Button(this).apply {
+    private fun statusBarHeight(): Int {
+        val id = resources.getIdentifier("status_bar_height", "dimen", "android")
+        return if (id > 0) resources.getDimensionPixelSize(id) else dp(24)
+    }
+
+    private fun rounded(color: Int, radius: Int): GradientDrawable =
+        GradientDrawable().apply { setColor(color); cornerRadius = dp(radius).toFloat() }
+
+    private fun smallAction(label: String, action: (TextView) -> Unit): TextView =
+        TextView(this).apply {
             text = label
-            textSize = 12f
-            minWidth = dp(40)
-            setPadding(4, 0, 4, 0)
+            textSize = 20f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = rounded(Color.rgb(51, 65, 95), 12)
+            setOnClickListener { action(this) }
+        }
+
+    private fun bottomAction(symbol: String, label: String, action: (TextView) -> Unit): TextView =
+        TextView(this).apply {
+            text = "$symbol\n$label"
+            textSize = 11f
+            setTextColor(if (label == "Home") Color.rgb(165, 180, 252) else Color.rgb(226, 232, 240))
+            gravity = Gravity.CENTER
+            setPadding(dp(4), dp(2), dp(4), dp(2))
+            layoutParams = LinearLayout.LayoutParams(0, dp(46), 1f)
             setOnClickListener { action(this) }
         }
 
@@ -147,13 +231,29 @@ class MainActivity : Activity() {
         address.clearFocus()
     }
 
-    private fun showEngines(anchor: Button) {
+    private fun showEngines(anchor: TextView) {
         val popup = PopupMenu(this, anchor)
         engines.keys.forEach { popup.menu.add(it) }
         popup.setOnMenuItemClickListener {
             engine = it.title.toString()
             prefs.edit().putString("engine", engine).apply()
             Toast.makeText(this, "Search: $engine", Toast.LENGTH_SHORT).show()
+            true
+        }
+        popup.show()
+    }
+
+    private fun showMore(anchor: TextView) {
+        val popup = PopupMenu(this, anchor)
+        listOf("Reload", "Bookmarks", "Search engine", "EXSTRA COMMAND", "Save bookmark").forEach { popup.menu.add(it) }
+        popup.setOnMenuItemClickListener {
+            when (it.title.toString()) {
+                "Reload" -> web.reload()
+                "Bookmarks" -> showBookmarks()
+                "Search engine" -> showEngines(anchor)
+                "EXSTRA COMMAND" -> showCommandConsole()
+                "Save bookmark" -> saveBookmark()
+            }
             true
         }
         popup.show()
@@ -172,20 +272,16 @@ class MainActivity : Activity() {
     }
 
     private fun updateTab() {
-        if (tabs.isNotEmpty() && current in tabs.indices) {
-            web.url?.let { tabs[current] = it }
-        }
-        if (::tabLabel.isInitialized) tabLabel.text = "Tabs: ${tabs.size}"
+        if (tabs.isNotEmpty() && current in tabs.indices) web.url?.let { tabs[current] = it }
+        if (::tabLabel.isInitialized) tabLabel.text = "${tabs.size} TAB${if (tabs.size == 1) "" else "S"}"
         if (tabs.isNotEmpty()) saveSession()
     }
 
     private fun showTabs() {
-        val names = tabs.mapIndexed { index, url ->
-            "${index + 1}. ${Uri.parse(url).host ?: url}"
-        }.toTypedArray()
+        val names = tabs.mapIndexed { index, url -> "${index + 1}. ${Uri.parse(url).host ?: url}" }.toTypedArray()
         if (names.isEmpty()) return
         AlertDialog.Builder(this)
-            .setTitle("Open tabs")
+            .setTitle("Your tabs")
             .setItems(names) { _, which ->
                 current = which
                 web.loadUrl(tabs[which])
@@ -203,6 +299,16 @@ class MainActivity : Activity() {
             .show()
     }
 
+    private fun showBookmarks() {
+        val saved = prefs.getStringSet("bookmarks", emptySet())?.toList().orEmpty()
+        if (saved.isEmpty()) {
+            Toast.makeText(this, "No bookmarks yet", Toast.LENGTH_SHORT).show()
+            return
+        }
+        AlertDialog.Builder(this).setTitle("Bookmarks").setItems(saved.toTypedArray()) { _, which ->
+            web.loadUrl(saved[which])
+        }.setNegativeButton("Close", null).show()
+    }
 
     private fun showCommandConsole() {
         val panel = LinearLayout(this).apply {
@@ -210,10 +316,10 @@ class MainActivity : Activity() {
             setPadding(dp(12), dp(8), dp(12), dp(4))
         }
         val output = TextView(this).apply {
-            text = "EXSTRA COMMAND v1\\nType help to see available commands.\\n"
+            text = "EXSTRA COMMAND v1\nType help to see available commands.\n"
             textSize = 13f
-            setTextColor(Color.rgb(40, 190, 110))
-            setBackgroundColor(Color.rgb(20, 24, 28))
+            setTextColor(Color.rgb(74, 222, 128))
+            setBackgroundColor(Color.rgb(15, 23, 42))
             setPadding(dp(10), dp(10), dp(10), dp(10))
         }
         val input = EditText(this).apply {
@@ -221,13 +327,10 @@ class MainActivity : Activity() {
             hint = "Enter command..."
             textSize = 14f
         }
-        panel.addView(output, LinearLayout.LayoutParams(-1, dp(190)))
+        panel.addView(output, LinearLayout.LayoutParams(-1, dp(170)))
         panel.addView(input, LinearLayout.LayoutParams(-1, dp(52)))
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("EXSTRA COMMAND")
-            .setView(panel)
-            .setNegativeButton("Close", null)
-            .create()
+        val dialog = AlertDialog.Builder(this).setTitle("EXSTRA COMMAND").setView(panel)
+            .setNegativeButton("Close", null).create()
         fun runCommand() {
             val raw = input.text.toString().trim()
             if (raw.isEmpty()) return
@@ -237,51 +340,37 @@ class MainActivity : Activity() {
             val result = when (command) {
                 "help" -> "Commands: help, url, open <address>, search <text>, back, forward, reload, newtab, tabs, bookmark, engine, clear"
                 "url" -> "Current URL: ${web.url ?: "none"}"
-                "open" -> {
-                    if (argument.isBlank()) "Usage: open <address>" else {
-                        address.setText(argument)
-                        navigateInput()
-                        "Opening: $argument"
+                "open", "search" -> {
+                    if (argument.isBlank()) "Usage: $command <text>" else {
+                        address.setText(argument); navigateInput(); "Opening: $argument"
                     }
                 }
-                "search" -> {
-                    if (argument.isBlank()) "Usage: search <text>" else {
-                        address.setText(argument)
-                        navigateInput()
-                        "Searching: $argument"
-                    }
-                }
-                "back" -> {
-                    if (web.canGoBack()) { web.goBack(); "Going back" } else "No previous page"
-                }
-                "forward" -> {
-                    if (web.canGoForward()) { web.goForward(); "Going forward" } else "No next page"
-                }
+                "back" -> if (web.canGoBack()) { web.goBack(); "Going back" } else "No previous page"
+                "forward" -> if (web.canGoForward()) { web.goForward(); "Going forward" } else "No next page"
                 "reload" -> { web.reload(); "Reloading page" }
                 "newtab" -> { newTab("https://www.google.com"); "New tab opened" }
                 "tabs" -> "Open tabs: ${tabs.size} / 12"
-                "bookmark" -> { saveBookmark(); "Bookmark command executed" }
+                "bookmark" -> { saveBookmark(); "Bookmark saved" }
                 "engine" -> "Search engine: $engine"
-                "clear" -> {
-                    output.text = "EXSTRA COMMAND v1\\nConsole cleared.\\n"
-                    input.text.clear()
-                    return
-                }
+                "clear" -> { output.text = "EXSTRA COMMAND v1\nConsole cleared.\n"; input.text.clear(); return }
                 else -> "Unknown command: $command. Type help."
             }
-            output.append("\\n> $raw\\n$result\\n")
+            output.append("\n> $raw\n$result\n")
             input.text.clear()
         }
-        val run = button("RUN") { runCommand() }
+        val run = TextView(this).apply {
+            text = "RUN"
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = rounded(accent, 12)
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            setOnClickListener { runCommand() }
+        }
         panel.addView(run, LinearLayout.LayoutParams(-1, dp(44)))
         input.setOnEditorActionListener { _, action, _ ->
-            if (action == EditorInfo.IME_ACTION_GO || action == EditorInfo.IME_ACTION_DONE) {
-                runCommand()
-                true
-            } else false
+            if (action == EditorInfo.IME_ACTION_GO || action == EditorInfo.IME_ACTION_DONE) { runCommand(); true } else false
         }
         dialog.show()
-        input.requestFocus()
     }
 
     private fun saveBookmark() {
@@ -295,7 +384,7 @@ class MainActivity : Activity() {
     private fun restoreSession() {
         engine = prefs.getString("engine", "Google") ?: "Google"
         val saved = prefs.getString("tabs", null)
-        if (saved != null) tabs.addAll(saved.split("\n").filter { it.isNotBlank() })
+        if (saved != null) tabs.addAll(saved.split("\n").filter { it.isNotBlank() }.take(12))
         current = prefs.getInt("current", 0).coerceIn(0, (tabs.size - 1).coerceAtLeast(0))
         if (tabs.isEmpty()) tabs.add("https://www.google.com")
         web.loadUrl(tabs[current])
@@ -303,11 +392,8 @@ class MainActivity : Activity() {
     }
 
     private fun saveSession() {
-        prefs.edit()
-            .putString("tabs", tabs.joinToString("\n"))
-            .putInt("current", current)
-            .putString("engine", engine)
-            .apply()
+        prefs.edit().putString("tabs", tabs.joinToString("\n")).putInt("current", current)
+            .putString("engine", engine).apply()
     }
 
     @Deprecated("Deprecated in Android API")
