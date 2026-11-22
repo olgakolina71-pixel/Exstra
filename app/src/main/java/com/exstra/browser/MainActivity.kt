@@ -144,7 +144,8 @@ class MainActivity : Activity() {
         bottom.addView(bottomItem("›", "Вперёд") { if (web.getVisibility() == android.view.View.VISIBLE && web.canGoForward()) web.goForward() })
         bottom.addView(bottomItem("⌂", "Главная") { showHome() })
         bottom.addView(bottomItem("▢", "Вкладки") { showTabs() })
-        val menuButton = bottomItem("☰", "Меню") { showMenu(menuButton) }
+        lateinit var menuButton: TextView
+        menuButton = bottomItem("☰", "Меню") { showMenu(menuButton) }
         bottom.addView(menuButton)
         if (!focusMode) root.addView(bottom, LinearLayout.LayoutParams(-1, dp(58)))
         setContentView(root)
