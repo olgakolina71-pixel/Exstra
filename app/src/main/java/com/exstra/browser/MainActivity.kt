@@ -114,14 +114,14 @@ class MainActivity : Activity() {
             CookieManager.getInstance().setAcceptCookie(true)
             if (android.os.Build.VERSION.SDK_INT >= 21) CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
             webViewClient = object : WebViewClient() {
-                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) { address.setText(url.orEmpty()); progress.visibility = android.view.View.VISIBLE }
+                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) { address.setText(url.orEmpty()); progress.setVisibility(android.view.View.VISIBLE) }
                 override fun onPageFinished(view: WebView?, url: String?) {
-                    progress.visibility = android.view.View.GONE; address.setText(url.orEmpty())
+                    progress.setVisibility(android.view.View.GONE); address.setText(url.orEmpty())
                     if (url != null && url.startsWith("http")) { history.remove(url); history.add(url); if (history.size > 100) history.removeAt(0); prefs.edit().putString("history", history.joinToString("\n")).apply(); refreshHome() }
                     syncTabs()
                 }
             }
-            webChromeClient = object : WebChromeClient() { override fun onProgressChanged(view: WebView?, value: Int) { progress.progress = value; progress.visibility = if (value >= 100) android.view.View.GONE else android.view.View.VISIBLE } }
+            webChromeClient = object : WebChromeClient() { override fun onProgressChanged(view: WebView?, value: Int) { progress.setProgress(value); progress.setVisibility(if (value >= 100) android.view.View.GONE else android.view.View.VISIBLE) } }
             setDownloadListener(DownloadListener { url, ua, disposition, mime, _ ->
                 val file = URLUtil.guessFileName(url, disposition, mime)
                 val request = DownloadManager.Request(Uri.parse(url)).setMimeType(mime).addRequestHeader("User-Agent", ua).setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED).setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, file)
@@ -129,9 +129,9 @@ class MainActivity : Activity() {
             })
         }
         root.addView(home, LinearLayout.LayoutParams(-1, 0, 1f))
-        root.addView(web, LinearLayout.LayoutParams(-1, 0, 1f)); web.visibility = android.view.View.GONE
+        root.addView(web, LinearLayout.LayoutParams(-1, 0, 1f)); web.setVisibility(android.view.View.GONE)
         val bottom = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; background = android.graphics.drawable.ColorDrawable(c("surface")); setPadding(dp(8),dp(5),dp(8),dp(5)) }
-        bottom.addView(bottomItem("‹", "Назад") { if (web.visibility == android.view.View.VISIBLE && web.canGoBack()) web.goBack() else showHome() })
+        bottom.addView(bottomItem("‹", "Назад") { if (web.getVisibility() == android.view.View.VISIBLE && web.canGoBack()) web.goBack() else showHome() })
         bottom.addView(bottomItem("⌂", "Главная") { showHome() })
         bottom.addView(bottomItem("＋", "Новая") { newTab() })
         bottom.addView(bottomItem("▢", "Вкладки") { showTabs() })
@@ -218,10 +218,10 @@ class MainActivity : Activity() {
         val url = if (raw.contains(".") && !raw.contains(" ")) { if (raw.startsWith("http://") || raw.startsWith("https://")) raw else "https://" + raw } else (engines[engine] ?: engines["Google"]!!) + Uri.encode(raw)
         open(url)
     }
-    private fun open(url: String) { if (tabs.isEmpty()) tabs.add(url); tabs[activeTab] = url; home.visibility = android.view.View.GONE; web.visibility = android.view.View.VISIBLE; web.loadUrl(url); address.setText(url); syncTabs() }
-    private fun showHome() { web.visibility = android.view.View.GONE; home.visibility = android.view.View.VISIBLE; address.setText(""); syncTabs() }
+    private fun open(url: String) { if (tabs.isEmpty()) tabs.add(url); tabs[activeTab] = url; home.setVisibility(android.view.View.GONE); web.setVisibility(android.view.View.VISIBLE); web.loadUrl(url); address.setText(url); syncTabs() }
+    private fun showHome() { web.setVisibility(android.view.View.GONE); home.setVisibility(android.view.View.VISIBLE); address.setText(""); syncTabs() }
     private fun newTab() { if (tabs.size>=20) { toast("Лимит — 20 вкладок"); return }; tabs.add("https://www.google.com"); activeTab=tabs.lastIndex; showHome(); syncTabs() }
-    private fun syncTabs() { if (::tabCount.isInitialized) tabCount.text = tabs.size.toString()+" вкладок"; if (web.visibility==android.view.View.VISIBLE && activeTab in tabs.indices) web.url?.let { tabs[activeTab]=it }; save() }
+    private fun syncTabs() { if (::tabCount.isInitialized) tabCount.text = tabs.size.toString()+" вкладок"; if (web.getVisibility()==android.view.View.VISIBLE && activeTab in tabs.indices) web.url?.let { tabs[activeTab]=it }; save() }
 
     private fun showTabs() {
         val items = tabs.mapIndexed { i, url -> (if (i==activeTab) "● " else "") + (i+1).toString()+" · "+(Uri.parse(url).host ?: "Новая вкладка") }.toTypedArray()
@@ -272,6 +272,6 @@ class MainActivity : Activity() {
     private fun about() { AlertDialog.Builder(this).setTitle("EXSTRA").setMessage("EXSTRA Browser · версия 0.2\\nБыстрый доступ, вкладки, закладки, история и настройки приватности.").setPositiveButton("ОК",null).show() }
     private fun restore() { history.clear(); history.addAll(prefs.getString("history","").orEmpty().split("\n").filter { it.startsWith("http") }.takeLast(100)); tabs.clear(); tabs.addAll(prefs.getString("tabs","").orEmpty().split("\n").filter { it.isNotBlank() }.take(20)); activeTab=prefs.getInt("current",0).coerceIn(0,(tabs.size-1).coerceAtLeast(0)); if(tabs.isEmpty())tabs.add("https://www.google.com"); showHome(); refreshHome(); syncTabs() }
     private fun save() { if(prefs.getBoolean("save_session",true))prefs.edit().putString("tabs",tabs.joinToString("\n")).putInt("current",activeTab).putString("engine",engine).apply() }
-    override fun onBackPressed() { if(web.visibility==android.view.View.VISIBLE&&web.canGoBack())web.goBack() else showHome() }
+    override fun onBackPressed() { if(web.getVisibility()==android.view.View.VISIBLE&&web.canGoBack())web.goBack() else showHome() }
     override fun onPause() { syncTabs(); save(); super.onPause() }
 }
