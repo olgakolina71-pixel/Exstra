@@ -82,6 +82,7 @@ class MainActivity : Activity() {
         controls.addView(button("＋") { newTab("https://www.google.com") })
         controls.addView(button("Tabs") { showTabs() })
         controls.addView(button("★") { saveBookmark() })
+        controls.addView(button("CMD") { showCommandConsole() })
         root.addView(controls)
 
         web = WebView(this).apply {
@@ -200,6 +201,87 @@ class MainActivity : Activity() {
             }
             .setNeutralButton("New tab") { _, _ -> newTab("https://www.google.com") }
             .show()
+    }
+
+
+    private fun showCommandConsole() {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(8), dp(12), dp(4))
+        }
+        val output = TextView(this).apply {
+            text = "EXSTRA COMMAND v1\\nType help to see available commands.\\n"
+            textSize = 13f
+            setTextColor(Color.rgb(40, 190, 110))
+            setBackgroundColor(Color.rgb(20, 24, 28))
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+        }
+        val input = EditText(this).apply {
+            setSingleLine(true)
+            hint = "Enter command..."
+            textSize = 14f
+        }
+        panel.addView(output, LinearLayout.LayoutParams(-1, dp(190)))
+        panel.addView(input, LinearLayout.LayoutParams(-1, dp(52)))
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("EXSTRA COMMAND")
+            .setView(panel)
+            .setNegativeButton("Close", null)
+            .create()
+        fun runCommand() {
+            val raw = input.text.toString().trim()
+            if (raw.isEmpty()) return
+            val parts = raw.split(Regex("\\s+"), limit = 2)
+            val command = parts[0].lowercase()
+            val argument = if (parts.size > 1) parts[1].trim() else ""
+            val result = when (command) {
+                "help" -> "Commands: help, url, open <address>, search <text>, back, forward, reload, newtab, tabs, bookmark, engine, clear"
+                "url" -> "Current URL: ${web.url ?: "none"}"
+                "open" -> {
+                    if (argument.isBlank()) "Usage: open <address>" else {
+                        address.setText(argument)
+                        navigateInput()
+                        "Opening: $argument"
+                    }
+                }
+                "search" -> {
+                    if (argument.isBlank()) "Usage: search <text>" else {
+                        address.setText(argument)
+                        navigateInput()
+                        "Searching: $argument"
+                    }
+                }
+                "back" -> {
+                    if (web.canGoBack()) { web.goBack(); "Going back" } else "No previous page"
+                }
+                "forward" -> {
+                    if (web.canGoForward()) { web.goForward(); "Going forward" } else "No next page"
+                }
+                "reload" -> { web.reload(); "Reloading page" }
+                "newtab" -> { newTab("https://www.google.com"); "New tab opened" }
+                "tabs" -> "Open tabs: ${tabs.size} / 12"
+                "bookmark" -> { saveBookmark(); "Bookmark command executed" }
+                "engine" -> "Search engine: $engine"
+                "clear" -> {
+                    output.text = "EXSTRA COMMAND v1\\nConsole cleared.\\n"
+                    input.text.clear()
+                    return
+                }
+                else -> "Unknown command: $command. Type help."
+            }
+            output.append("\\n> $raw\\n$result\\n")
+            input.text.clear()
+        }
+        val run = button("RUN") { runCommand() }
+        panel.addView(run, LinearLayout.LayoutParams(-1, dp(44)))
+        input.setOnEditorActionListener { _, action, _ ->
+            if (action == EditorInfo.IME_ACTION_GO || action == EditorInfo.IME_ACTION_DONE) {
+                runCommand()
+                true
+            } else false
+        }
+        dialog.show()
+        input.requestFocus()
     }
 
     private fun saveBookmark() {
