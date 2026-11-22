@@ -86,13 +86,18 @@ class MainActivity : Activity() {
         }
         val header = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(10)); setBackgroundColor(c("bg")) }
         val brandRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        val brand = TextView(this).apply {
-            text = "EXSTRA"; textSize = 20f; letterSpacing = .1f; setTextColor(c("text")); typeface = Typeface.create("sans-serif", Typeface.BOLD)
+        val mark = TextView(this).apply {
+            text = "✕"; textSize = 27f; gravity = Gravity.CENTER; typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.rgb(166, 112, 255)); background = rounded(c("surface2"), 13)
         }
-        brandRow.addView(brand, LinearLayout.LayoutParams(0, dp(38), 1f))
-        tabCount = button(tabs.size.toString() + " вкладок", c("surface2")) { showTabs() }
-        brandRow.addView(tabCount)
-        brandRow.addView(button("⋮", c("surface2")) { showMenu(it) }, LinearLayout.LayoutParams(dp(42), dp(42)).apply { leftMargin = dp(8) })
+        brandRow.addView(mark, LinearLayout.LayoutParams(dp(42), dp(42)).apply { rightMargin = dp(10) })
+        val brand = TextView(this).apply {
+            text = "EXSTRA"; textSize = 20f; letterSpacing = .12f; setTextColor(c("text")); typeface = Typeface.create("sans-serif", Typeface.BOLD)
+        }
+        brandRow.addView(brand, LinearLayout.LayoutParams(0, dp(42), 1f))
+        tabCount = button(tabs.size.toString(), c("surface2")) { showTabs() }
+        brandRow.addView(tabCount, LinearLayout.LayoutParams(dp(42), dp(42)))
+        brandRow.addView(button("⚙", c("surface2")) { settings() }, LinearLayout.LayoutParams(dp(42), dp(42)).apply { leftMargin = dp(8) })
         header.addView(brandRow)
         val search = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; background = rounded(c("surface"), 17, c("line")); setPadding(dp(9), 0, dp(5), 0) }
         search.addView(TextView(this).apply { text = "⌕"; textSize = 25f; gravity = Gravity.CENTER; setTextColor(accent) }, LinearLayout.LayoutParams(dp(32), dp(48)))
@@ -136,11 +141,10 @@ class MainActivity : Activity() {
         root.addView(web, LinearLayout.LayoutParams(-1, 0, 1f)); web.setVisibility(android.view.View.GONE)
         val bottom = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; background = android.graphics.drawable.ColorDrawable(c("surface")); setPadding(dp(8),dp(5),dp(8),dp(5)) }
         bottom.addView(bottomItem("‹", "Назад") { if (web.getVisibility() == android.view.View.VISIBLE && web.canGoBack()) web.goBack() else showHome() })
+        bottom.addView(bottomItem("›", "Вперёд") { if (web.getVisibility() == android.view.View.VISIBLE && web.canGoForward()) web.goForward() })
         bottom.addView(bottomItem("⌂", "Главная") { showHome() })
-        bottom.addView(bottomItem("＋", "Новая") { newTab() })
         bottom.addView(bottomItem("▢", "Вкладки") { showTabs() })
-        bottom.addView(bottomItem("☆", "Закладки") { showBookmarks() })
-        bottom.addView(bottomItem("⚡", "Инструменты") { quickTools() })
+        bottom.addView(bottomItem("☰", "Меню") { showMenu(bottom) })
         if (!focusMode) root.addView(bottom, LinearLayout.LayoutParams(-1, dp(58)))
         setContentView(root)
         address.setOnEditorActionListener { _, action, _ -> if (action == EditorInfo.IME_ACTION_GO || action == EditorInfo.IME_ACTION_DONE) { navigate(); true } else false }
@@ -148,15 +152,15 @@ class MainActivity : Activity() {
 
     private fun homeContent(): LinearLayout {
         val page = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18),dp(20),dp(18),dp(24)) }
-        page.addView(TextView(this).apply { text = "Добро пожаловать"; textSize = 13f; setTextColor(c("muted")) })
-        page.addView(TextView(this).apply { text = "Что ищем сегодня?"; textSize = 26f; typeface = Typeface.DEFAULT_BOLD; setTextColor(c("text")); setPadding(0,dp(4),0,dp(14)) })
+        page.addView(TextView(this).apply { text = "ТВОЙ ИНТЕРНЕТ. ТВОИ ПРАВИЛА."; textSize = 10f; letterSpacing = .12f; typeface = Typeface.DEFAULT_BOLD; setTextColor(accent) })
+        page.addView(TextView(this).apply { text = "Что ищем сегодня?"; textSize = 25f; typeface = Typeface.DEFAULT_BOLD; setTextColor(c("text")); setPadding(0,dp(5),0,dp(16)) })
         val hero = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(Color.rgb(77,48,146),Color.rgb(98,61,191),Color.rgb(43,42,117))).apply { cornerRadius = dp(22).toFloat() }; setPadding(dp(18),dp(18),dp(18),dp(18)) }
-        hero.addView(TextView(this).apply { text = "EXSTRA  ·  FAST & SIMPLE"; textSize = 11f; letterSpacing = .08f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.rgb(215,203,255)) })
+        hero.addView(TextView(this).apply { text = "✕   EXSTRA  ·  FAST & SIMPLE"; textSize = 11f; letterSpacing = .08f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.rgb(215,203,255)) })
         hero.addView(TextView(this).apply { text = "Интернет без лишнего"; textSize = 21f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.WHITE); setPadding(0,dp(8),0,dp(5)) })
         hero.addView(TextView(this).apply { text = "Поиск, сайты и твои вкладки — всё под рукой."; textSize = 13f; setTextColor(Color.rgb(226,221,246)) })
         hero.addView(button("Начать поиск  →", Color.argb(50,255,255,255)) { address.requestFocus(); keyboard(address) }, LinearLayout.LayoutParams(-1,dp(44)).apply { topMargin = dp(14) })
         page.addView(hero)
-        if (prefs.getBoolean("home_shortcuts",true)) section(page, "Быстрый доступ", "＋") { addSite() }
+        if (prefs.getBoolean("home_shortcuts",true)) section(page, "Популярные сайты", "＋ Добавить") { addSite() }
         val sites = defaults + (prefs.getStringSet("shortcuts", emptySet())?.toList()?.map { it + "|•|" } ?: emptyList())
         val rows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         for (i in sites.indices step 3) {
@@ -168,10 +172,10 @@ class MainActivity : Activity() {
             rows.addView(row, LinearLayout.LayoutParams(-1,-2).apply { if (i>0) topMargin = dp(8) })
         }
         if (prefs.getBoolean("home_shortcuts",true)) page.addView(rows)
-        if (prefs.getBoolean("home_recent",true)) section(page, "Недавно посещённые", "Очистить") { clearHistory() }
+        if (prefs.getBoolean("home_recent",true)) section(page, "Недавние сайты", "Очистить") { clearHistory() }
         val recent = history.takeLast(4).reversed()
         if (prefs.getBoolean("home_recent",true)) { if (recent.isEmpty()) page.addView(TextView(this).apply { text = "Тут появятся недавно открытые сайты."; textSize = 13f; setTextColor(c("muted")); background = rounded(c("surface"),15,c("line")); setPadding(dp(14),dp(14),dp(14),dp(14)) }) else recent.forEach { page.addView(historyRow(it)) } }
-        if (prefs.getBoolean("home_tools",true)) section(page, "Инструменты", null) {}
+        if (prefs.getBoolean("home_tools",true)) section(page, "Возможности EXSTRA", null) {}
         if (prefs.getBoolean("home_tools",true)) { page.addView(tool("⌘", "EXSTRA COMMAND", "Команды браузера") { command() }); page.addView(tool("◷", "EXSTRA REWIND", "Сохранённые сессии") { rewind() }); page.addView(tool("⇩", "EXSTRA DROP", "Ссылки на потом") { showDrop() }); page.addView(tool("◉", "EXSTRA RADAR", "Состояние страницы и соединения") { radar() }); page.addView(tool("⚙", "Настройки", "Внешний вид, жесты и приватность") { settings() }); page.addView(tool("✦", "Настроить главную", "Скрыть или показать блоки") { customizeHome() }) }
         return page
     }
