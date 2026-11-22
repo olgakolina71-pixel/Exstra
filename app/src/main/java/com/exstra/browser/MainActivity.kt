@@ -11,6 +11,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.view.Gravity
+import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.webkit.CookieManager
 import android.webkit.DownloadListener
@@ -129,7 +130,7 @@ class MainActivity : Activity() {
         }
         root.addView(home, LinearLayout.LayoutParams(-1, 0, 1f))
         root.addView(web, LinearLayout.LayoutParams(-1, 0, 1f)); web.visibility = android.view.View.GONE
-        val bottom = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; background = android.graphics.ColorDrawable(c("surface")); setPadding(dp(8),dp(5),dp(8),dp(5)) }
+        val bottom = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; background = android.graphics.drawable.ColorDrawable(c("surface")); setPadding(dp(8),dp(5),dp(8),dp(5)) }
         bottom.addView(bottomItem("‹", "Назад") { if (web.visibility == android.view.View.VISIBLE && web.canGoBack()) web.goBack() else showHome() })
         bottom.addView(bottomItem("⌂", "Главная") { showHome() })
         bottom.addView(bottomItem("＋", "Новая") { newTab() })
@@ -144,7 +145,7 @@ class MainActivity : Activity() {
         val page = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18),dp(20),dp(18),dp(24)) }
         page.addView(TextView(this).apply { text = "Добро пожаловать"; textSize = 13f; setTextColor(c("muted")) })
         page.addView(TextView(this).apply { text = "Что ищем сегодня?"; textSize = 26f; typeface = Typeface.DEFAULT_BOLD; setTextColor(c("text")); setPadding(0,dp(4),0,dp(14)) })
-        val hero = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(Color.rgb(77,48,146),Color.rgb(98,61,191),Color.rgb(43,42,117))).apply { cornerRadius = dp(22).toFloat() }; setPadding(dp(18),dp(18),dp(18),dp(18) }
+        val hero = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(Color.rgb(77,48,146),Color.rgb(98,61,191),Color.rgb(43,42,117))).apply { cornerRadius = dp(22).toFloat() }; setPadding(dp(18),dp(18),dp(18),dp(18)) }
         hero.addView(TextView(this).apply { text = "EXSTRA  ·  FAST & SIMPLE"; textSize = 11f; letterSpacing = .08f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.rgb(215,203,255)) })
         hero.addView(TextView(this).apply { text = "Интернет без лишнего"; textSize = 21f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.WHITE); setPadding(0,dp(8),0,dp(5)) })
         hero.addView(TextView(this).apply { text = "Поиск, сайты и твои вкладки — всё под рукой."; textSize = 13f; setTextColor(Color.rgb(226,221,246)) })
