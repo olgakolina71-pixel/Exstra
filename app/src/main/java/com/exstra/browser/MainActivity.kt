@@ -38,6 +38,9 @@ class MainActivity : Activity() {
     private var activeTab = 0
     private var engine = "Google"
     private var dark = true
+    private var focusMode = false
+    private var gestureX = 0f
+    private var gestureY = 0f
     private val accent = Color.rgb(139, 92, 246)
     private val prefs by lazy { getSharedPreferences("exstra", Context.MODE_PRIVATE) }
     private val engines = linkedMapOf("Google" to "https://www.google.com/search?q=", "Bing" to "https://www.bing.com/search?q=", "Yandex" to "https://yandex.com/search/?text=", "DuckDuckGo" to "https://duckduckgo.com/?q=", "Brave" to "https://search.brave.com/search?q=")
@@ -100,7 +103,7 @@ class MainActivity : Activity() {
         search.addView(button(engine.take(2).uppercase(), c("surface2")) { chooseEngine() }, LinearLayout.LayoutParams(dp(38), dp(36)))
         search.addView(button("→", accent) { navigate() }, LinearLayout.LayoutParams(dp(40), dp(40)).apply { leftMargin = dp(4) })
         header.addView(search, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(8) })
-        root.addView(header)
+        if (!focusMode) root.addView(header)
         progress = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { max = 100; progressTintList = android.content.res.ColorStateList.valueOf(accent); progressBackgroundTintList = android.content.res.ColorStateList.valueOf(c("bg")) }
         root.addView(progress, LinearLayout.LayoutParams(-1, dp(2)))
 
@@ -122,6 +125,7 @@ class MainActivity : Activity() {
                 }
             }
             webChromeClient = object : WebChromeClient() { override fun onProgressChanged(view: WebView?, value: Int) { this@MainActivity.progress.setProgress(value); this@MainActivity.progress.setVisibility(if (value >= 100) android.view.View.GONE else android.view.View.VISIBLE) } }
+            setOnTouchListener { _, event -> gesture(event) }
             setDownloadListener(DownloadListener { url, ua, disposition, mime, _ ->
                 val file = URLUtil.guessFileName(url, disposition, mime)
                 val request = DownloadManager.Request(Uri.parse(url)).setMimeType(mime).addRequestHeader("User-Agent", ua).setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED).setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, file)
@@ -136,7 +140,8 @@ class MainActivity : Activity() {
         bottom.addView(bottomItem("＋", "Новая") { newTab() })
         bottom.addView(bottomItem("▢", "Вкладки") { showTabs() })
         bottom.addView(bottomItem("☆", "Закладки") { showBookmarks() })
-        root.addView(bottom, LinearLayout.LayoutParams(-1, dp(58)))
+        bottom.addView(bottomItem("⚡", "Инструменты") { quickTools() })
+        if (!focusMode) root.addView(bottom, LinearLayout.LayoutParams(-1, dp(58)))
         setContentView(root)
         address.setOnEditorActionListener { _, action, _ -> if (action == EditorInfo.IME_ACTION_GO || action == EditorInfo.IME_ACTION_DONE) { navigate(); true } else false }
     }
@@ -151,7 +156,7 @@ class MainActivity : Activity() {
         hero.addView(TextView(this).apply { text = "Поиск, сайты и твои вкладки — всё под рукой."; textSize = 13f; setTextColor(Color.rgb(226,221,246)) })
         hero.addView(button("Начать поиск  →", Color.argb(50,255,255,255)) { address.requestFocus(); keyboard(address) }, LinearLayout.LayoutParams(-1,dp(44)).apply { topMargin = dp(14) })
         page.addView(hero)
-        section(page, "Быстрый доступ", "＋") { addSite() }
+        if (prefs.getBoolean("home_shortcuts",true)) section(page, "Быстрый доступ", "＋") { addSite() }
         val sites = defaults + (prefs.getStringSet("shortcuts", emptySet())?.toList()?.map { it + "|•|" } ?: emptyList())
         val rows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         for (i in sites.indices step 3) {
@@ -162,15 +167,12 @@ class MainActivity : Activity() {
             }
             rows.addView(row, LinearLayout.LayoutParams(-1,-2).apply { if (i>0) topMargin = dp(8) })
         }
-        page.addView(rows)
-        section(page, "Недавно посещённые", "Очистить") { clearHistory() }
+        if (prefs.getBoolean("home_shortcuts",true)) page.addView(rows)
+        if (prefs.getBoolean("home_recent",true)) section(page, "Недавно посещённые", "Очистить") { clearHistory() }
         val recent = history.takeLast(4).reversed()
-        if (recent.isEmpty()) page.addView(TextView(this).apply { text = "Тут появятся недавно открытые сайты."; textSize = 13f; setTextColor(c("muted")); background = rounded(c("surface"),15,c("line")); setPadding(dp(14),dp(14),dp(14),dp(14)) })
-        else recent.forEach { page.addView(historyRow(it)) }
-        section(page, "Инструменты", null) {}
-        page.addView(tool("⌘", "EXSTRA COMMAND", "Команды браузера") { command() })
-        page.addView(tool("◷", "EXSTRA REWIND", "Сохранённые сессии") { rewind() })
-        page.addView(tool("⚙", "Настройки", "Внешний вид и приватность") { settings() })
+        if (prefs.getBoolean("home_recent",true)) { if (recent.isEmpty()) page.addView(TextView(this).apply { text = "Тут появятся недавно открытые сайты."; textSize = 13f; setTextColor(c("muted")); background = rounded(c("surface"),15,c("line")); setPadding(dp(14),dp(14),dp(14),dp(14)) }) else recent.forEach { page.addView(historyRow(it)) } }
+        if (prefs.getBoolean("home_tools",true)) section(page, "Инструменты", null) {}
+        if (prefs.getBoolean("home_tools",true)) { page.addView(tool("⌘", "EXSTRA COMMAND", "Команды браузера") { command() }); page.addView(tool("◷", "EXSTRA REWIND", "Сохранённые сессии") { rewind() }); page.addView(tool("⇩", "EXSTRA DROP", "Ссылки на потом") { showDrop() }); page.addView(tool("◉", "EXSTRA RADAR", "Состояние страницы и соединения") { radar() }); page.addView(tool("⚙", "Настройки", "Внешний вид, жесты и приватность") { settings() }); page.addView(tool("✦", "Настроить главную", "Скрыть или показать блоки") { customizeHome() }) }
         return page
     }
 
@@ -219,6 +221,16 @@ class MainActivity : Activity() {
         open(url)
     }
     private fun open(url: String) { if (tabs.isEmpty()) tabs.add(url); tabs[activeTab] = url; home.setVisibility(android.view.View.GONE); web.setVisibility(android.view.View.VISIBLE); web.loadUrl(url); address.setText(url); syncTabs() }
+    private fun saveDrop(url: String = web.url ?: address.text.toString()) { if (!url.startsWith("http")) { toast("Сначала открой сайт"); return }; val items=prefs.getStringSet("drop",emptySet())?.toMutableSet() ?: mutableSetOf(); items.add(url); prefs.edit().putStringSet("drop",items).apply(); toast("Сохранено в EXSTRA DROP") }
+    private fun showDrop() { val items=prefs.getStringSet("drop",emptySet())?.toList().orEmpty(); if(items.isEmpty()) { AlertDialog.Builder(this).setTitle("EXSTRA DROP").setMessage("Пока пусто. Сохраняй сюда ссылки, которые хочешь открыть позже.").setPositiveButton("Добавить текущую") { _,_ -> saveDrop() }.setNegativeButton("Закрыть",null).show() } else AlertDialog.Builder(this).setTitle("EXSTRA DROP · ${items.size}").setItems(items.map { Uri.parse(it).host ?: it }.toTypedArray()) { _,i -> open(items[i]) }.setNeutralButton("Добавить текущую") { _,_ -> saveDrop() }.setNegativeButton("Очистить") { _,_ -> prefs.edit().remove("drop").apply(); toast("DROP очищен") }.show() }
+    private fun quickTools() { val options=arrayOf("Сохранить ссылку в DROP","Добавить в закладки","Поделиться ссылкой","Копировать ссылку","Обновить страницу","Найти на странице","Скриншот (системный)","Перевести страницу (открыть перевод)") ; AlertDialog.Builder(this).setTitle("Quick Tools").setItems(options) { _,i -> when(i){0->saveDrop();1->saveBookmark();2->shareUrl();3->copyUrl();4->web.reload();5->findOnPage();6->toast("Используй системный скриншот");7->web.url?.let { open("https://translate.google.com/translate?u="+Uri.encode(it)) } } }.show() }
+    private fun shareUrl() { val u=web.url ?: return; val intent=android.content.Intent(android.content.Intent.ACTION_SEND).apply { type="text/plain"; putExtra(android.content.Intent.EXTRA_TEXT,u) }; startActivity(android.content.Intent.createChooser(intent,"Поделиться ссылкой")) }
+    private fun copyUrl() { val u=web.url ?: address.text.toString(); if(u.isBlank())return; (getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("EXSTRA URL",u)); toast("Ссылка скопирована") }
+    private fun findOnPage() { val e=EditText(this).apply { hint="Найти текст" }; AlertDialog.Builder(this).setTitle("Поиск на странице").setView(e).setPositiveButton("Найти") { _,_ -> web.findAllAsync(e.text.toString()) }.setNegativeButton("Отмена",null).show() }
+    private fun radar() { val url=web.url ?: "Домашняя страница"; val net=if(android.net.ConnectivityManager.CONNECTIVITY_ACTION.isNotEmpty()) "Проверяй соединение в системных настройках" else ""; AlertDialog.Builder(this).setTitle("EXSTRA RADAR").setMessage("Страница:\n$url\n\nЗагрузка: ${progress.progress}%\n\nWebView · JavaScript ${if(web.settings.javaScriptEnabled) "включён" else "выключен"}\nCookies ${if(CookieManager.getInstance().acceptCookie()) "разрешены" else "запрещены"}\nБезопасный просмотр: ${if(android.os.Build.VERSION.SDK_INT>=26) "доступен" else "версия Android старше"}").setPositiveButton("Обновить") { _,_ -> web.reload() }.setNeutralButton("Копировать URL") { _,_ -> copyUrl() }.setNegativeButton("ОК",null).show() }
+    private fun toggleFocus() { focusMode=!focusMode; buildUi(); if(web.url!=null && tabs.isNotEmpty()) { web.loadUrl(tabs[activeTab]) }; toast(if(focusMode) "EXSTRA FOCUS включён · нажми назад для выхода" else "Обычный режим") }
+    private fun customizeHome() { val labels=arrayOf("Быстрый доступ","Недавно посещённые","Инструменты"); val keys=arrayOf("home_shortcuts","home_recent","home_tools"); val checked=BooleanArray(3){prefs.getBoolean(keys[it],true)}; AlertDialog.Builder(this).setTitle("Настроить главную").setMultiChoiceItems(labels,checked){_,i,v->prefs.edit().putBoolean(keys[i],v).apply()}.setPositiveButton("Готово"){_,_->refreshHome()}.show() }
+    private fun gesture(e: android.view.MotionEvent): Boolean { when(e.action){android.view.MotionEvent.ACTION_DOWN->{gestureX=e.x;gestureY=e.y}; android.view.MotionEvent.ACTION_UP->{val dx=e.x-gestureX;val dy=e.y-gestureY;if(kotlin.math.abs(dx)>dp(90)&&kotlin.math.abs(dx)>kotlin.math.abs(dy)*1.4){if(dx>0&&web.canGoBack())web.goBack() else if(dx<0&&tabs.size>1){activeTab=(activeTab+1)%tabs.size;open(tabs[activeTab])};return true}} };return false }
     private fun showHome() { web.setVisibility(android.view.View.GONE); home.setVisibility(android.view.View.VISIBLE); address.setText(""); syncTabs() }
     private fun newTab() { if (tabs.size>=20) { toast("Лимит — 20 вкладок"); return }; tabs.add("https://www.google.com"); activeTab=tabs.lastIndex; showHome(); syncTabs() }
     private fun syncTabs() { if (::tabCount.isInitialized) tabCount.text = tabs.size.toString()+" вкладок"; if (web.getVisibility()==android.view.View.VISIBLE && activeTab in tabs.indices) web.url?.let { tabs[activeTab]=it }; save() }
@@ -231,8 +243,8 @@ class MainActivity : Activity() {
             }.show()
     }
     private fun showMenu(anchor: TextView) {
-        val p=PopupMenu(this,anchor); listOf("Закладки","История","Загрузки","Поисковик","EXSTRA COMMAND","EXSTRA REWIND","Настройки","О браузере").forEach { p.menu.add(it) }
-        p.setOnMenuItemClickListener { item -> when(item.title.toString()) { "Закладки"->bookmarks(); "История"->showHistory(); "Загрузки"->downloads(); "Поисковик"->chooseEngine(); "EXSTRA COMMAND"->command(); "EXSTRA REWIND"->rewind(); "Настройки"->settings(); "О браузере"->about() }; true }; p.show()
+        val p=PopupMenu(this,anchor); listOf("Закладки","История","Загрузки","EXSTRA DROP","EXSTRA RADAR","Quick Tools","EXSTRA FOCUS","Поисковик","EXSTRA COMMAND","EXSTRA REWIND","Настройки","О браузере").forEach { p.menu.add(it) }
+        p.setOnMenuItemClickListener { item -> when(item.title.toString()) { "Закладки"->bookmarks(); "История"->showHistory(); "Загрузки"->downloads(); "Поисковик"->chooseEngine(); "EXSTRA DROP"->showDrop(); "EXSTRA RADAR"->radar(); "Quick Tools"->quickTools(); "EXSTRA FOCUS"->toggleFocus(); "EXSTRA COMMAND"->command(); "EXSTRA REWIND"->rewind(); "Настройки"->settings(); "О браузере"->about() }; true }; p.show()
     }
     private fun chooseEngine() { val names=engines.keys.toTypedArray(); AlertDialog.Builder(this).setTitle("Поисковик").setSingleChoiceItems(names,names.indexOf(engine).coerceAtLeast(0)) { d,i -> engine=names[i]; prefs.edit().putString("engine",engine).apply(); d.dismiss(); toast("Выбран "+engine) }.setNegativeButton("Отмена",null).show() }
     private fun addSite() {
@@ -259,14 +271,14 @@ class MainActivity : Activity() {
         val input=EditText(this).apply { hint="help / open / search / back / reload / tabs"; setSingleLine(); imeOptions=EditorInfo.IME_ACTION_GO }
         AlertDialog.Builder(this).setTitle("EXSTRA COMMAND").setView(input).setPositiveButton("Выполнить") { _,_ ->
             val cmd=input.text.toString().trim(); val p=cmd.split(Regex("\\s+"),limit=2); val arg=p.getOrNull(1).orEmpty()
-            when(p[0].lowercase()){ "open"->if(arg.isNotBlank())open(if(arg.contains(".")&&!arg.contains(" "))if(arg.startsWith("http"))arg else "https://"+arg else engines[engine]+Uri.encode(arg)); "search"->if(arg.isNotBlank())open(engines[engine]+Uri.encode(arg)); "back"->if(web.canGoBack())web.goBack(); "reload"->web.reload(); "home"->showHome(); "tabs"->showTabs(); "bookmark"->saveBookmark(); "help"->toast("open, search, back, reload, home, tabs, bookmark"); else->toast("Неизвестная команда") }
+            when(p[0].lowercase()){ "open"->if(arg.isNotBlank())open(if(arg.contains(".")&&!arg.contains(" "))if(arg.startsWith("http"))arg else "https://"+arg else engines[engine]+Uri.encode(arg)); "search"->if(arg.isNotBlank())open(engines[engine]+Uri.encode(arg)); "back"->if(web.canGoBack())web.goBack(); "reload"->web.reload(); "home"->showHome(); "tabs"->showTabs(); "bookmark"->saveBookmark(); "drop"->saveDrop(); "focus"->toggleFocus(); "radar"->radar(); "tools"->quickTools(); "copy"->copyUrl(); "share"->shareUrl(); "help"->toast("open, search, back, reload, home, tabs, bookmark, drop, focus, radar, tools, copy, share"); else->toast("Неизвестная команда") }
         }.setNegativeButton("Отмена",null).show()
     }
     private fun settings() {
-        val labels=arrayOf("Тёмная тема","Загружать картинки","Автовоспроизведение","Сохранять вкладки","Очистить историю")
-        val checked=booleanArrayOf(dark,prefs.getBoolean("images",true),prefs.getBoolean("autoplay",false),prefs.getBoolean("save_session",true),false)
+        val labels=arrayOf("Тёмная тема","Загружать картинки","Автовоспроизведение","Сохранять вкладки","Очистить историю","Режим фокуса","Настроить главную","Панель Quick Tools")
+        val checked=booleanArrayOf(dark,prefs.getBoolean("images",true),prefs.getBoolean("autoplay",false),prefs.getBoolean("save_session",true),false,focusMode,false,true)
         AlertDialog.Builder(this).setTitle("Настройки EXSTRA").setMultiChoiceItems(labels,checked) { _,i,v ->
-            when(i){0->{dark=v;prefs.edit().putBoolean("dark",v).apply();setupBars();buildUi();restore()};1->{prefs.edit().putBoolean("images",v).apply();web.settings.loadsImagesAutomatically=v};2->{prefs.edit().putBoolean("autoplay",v).apply();web.settings.mediaPlaybackRequiresUserGesture=!v};3->prefs.edit().putBoolean("save_session",v).apply();4->if(v)clearHistory()}
+            when(i){0->{dark=v;prefs.edit().putBoolean("dark",v).apply();setupBars();buildUi();restore()};1->{prefs.edit().putBoolean("images",v).apply();web.settings.loadsImagesAutomatically=v};2->{prefs.edit().putBoolean("autoplay",v).apply();web.settings.mediaPlaybackRequiresUserGesture=!v};3->prefs.edit().putBoolean("save_session",v).apply();4->if(v)clearHistory();5->if(v)toggleFocus();6->customizeHome();7->quickTools()}
         }.setPositiveButton("Готово",null).show()
     }
     private fun about() { AlertDialog.Builder(this).setTitle("EXSTRA").setMessage("EXSTRA Browser · версия 0.2\\nБыстрый доступ, вкладки, закладки, история и настройки приватности.").setPositiveButton("ОК",null).show() }
