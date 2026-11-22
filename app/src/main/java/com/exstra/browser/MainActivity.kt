@@ -49,7 +49,14 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         window.statusBarColor = Color.rgb(11, 18, 32)
         window.navigationBarColor = Color.rgb(11, 18, 32)
-        window.decorView.systemUiVisibility = 0
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_VISIBLE
+        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION)
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            window.isNavigationBarContrastEnforced = true
+            window.isStatusBarContrastEnforced = true
+        }
         buildUi()
         restoreSession()
     }
