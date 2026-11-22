@@ -131,7 +131,10 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.WHITE)
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            settings.loadsImagesAutomatically = true
+            settings.loadsImagesAutomatically = prefs.getBoolean("load_images", true)
+            settings.mediaPlaybackRequiresUserGesture = !prefs.getBoolean("autoplay", false)
+            if (android.os.Build.VERSION.SDK_INT >= 26) settings.safeBrowsingEnabled = true
+            if (android.os.Build.VERSION.SDK_INT >= 21) CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
             settings.javaScriptCanOpenWindowsAutomatically = false
             CookieManager.getInstance().setAcceptCookie(true)
             webViewClient = object : WebViewClient() {
@@ -244,7 +247,7 @@ class MainActivity : Activity() {
 
     private fun showMore(anchor: TextView) {
         val popup = PopupMenu(this, anchor)
-        listOf("Reload", "Bookmarks", "Search engine", "EXSTRA COMMAND", "Save bookmark").forEach { popup.menu.add(it) }
+        listOf("Reload", "Bookmarks", "Search engine", "EXSTRA COMMAND", "Save bookmark", "EXSTRA REWIND", "Skins", "Data Control", "Modules", "Tab groups").forEach { popup.menu.add(it) }
         popup.setOnMenuItemClickListener {
             when (it.title.toString()) {
                 "Reload" -> web.reload()
@@ -252,6 +255,11 @@ class MainActivity : Activity() {
                 "Search engine" -> showEngines(anchor)
                 "EXSTRA COMMAND" -> showCommandConsole()
                 "Save bookmark" -> saveBookmark()
+                "EXSTRA REWIND" -> showRewind()
+                "Skins" -> showSkins()
+                "Data Control" -> showDataControl()
+                "Modules" -> showModules()
+                "Tab groups" -> showTabGroups()
             }
             true
         }
@@ -351,6 +359,11 @@ class MainActivity : Activity() {
                 "tabs" -> "Open tabs: ${tabs.size} / 12"
                 "bookmark" -> { saveBookmark(); "Bookmark saved" }
                 "engine" -> "Search engine: $engine"
+                "rewind" -> { showRewind(); "Opening session history" }
+                "skin" -> { showSkins(); "Opening skins" }
+                "data" -> { showDataControl(); "Opening data controls" }
+                "modules" -> { showModules(); "Opening modules" }
+                "group" -> { showTabGroups(); "Opening tab groups" }
                 "clear" -> { output.text = "EXSTRA COMMAND v1\nConsole cleared.\n"; input.text.clear(); return }
                 else -> "Unknown command: $command. Type help."
             }
@@ -372,6 +385,74 @@ class MainActivity : Activity() {
         dialog.show()
     }
 
+    private fun showRewind() {
+        val items = prefs.getStringSet("rewind", emptySet())?.toMutableSet() ?: mutableSetOf()
+        val snapshot = System.currentTimeMillis().toString() + "|" + current + "|" + tabs.joinToString("~")
+        items.add(snapshot)
+        while (items.size > 20) items.remove(items.minByOrNull { it.substringBefore("|").toLongOrNull() ?: 0L })
+        prefs.edit().putStringSet("rewind", items).apply()
+        val ordered = items.sortedByDescending { it.substringBefore("|").toLongOrNull() ?: 0L }
+        if (ordered.isEmpty()) return
+        val labels = ordered.map { item ->
+            val p = item.split("|", limit = 3)
+            val count = p.getOrNull(2)?.split("~")?.size ?: 0
+            "Session · " + count + " tabs · " + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(p[0].toLong()))
+        }.toTypedArray()
+        AlertDialog.Builder(this).setTitle("EXSTRA REWIND · Sessions").setItems(labels) { _, which ->
+            val p = ordered[which].split("|", limit = 3)
+            val restored = p.getOrNull(2)?.split("~")?.filter { it.startsWith("http") }.orEmpty()
+            if (restored.isNotEmpty()) {
+                tabs.clear(); tabs.addAll(restored.take(12))
+                current = (p.getOrNull(1)?.toIntOrNull() ?: 0).coerceIn(0, tabs.lastIndex)
+                web.loadUrl(tabs[current]); updateTab(); saveSession()
+            }
+        }.setNegativeButton("Close", null).show()
+    }
+
+    private fun showSkins() {
+        val names = arrayOf("Midnight Indigo", "Graphite", "Light")
+        AlertDialog.Builder(this).setTitle("EXSTRA SKINS").setSingleChoiceItems(names, prefs.getInt("skin", 0)) { dialog, which ->
+            prefs.edit().putInt("skin", which).apply()
+            val colors = when (which) { 1 -> intArrayOf(Color.rgb(25,29,36), Color.rgb(48,55,67)); 2 -> intArrayOf(Color.WHITE, Color.rgb(238,242,247)); else -> intArrayOf(Color.rgb(17,24,39), Color.rgb(31,41,61)) }
+            root.setBackgroundColor(colors[0]); dialog.dismiss()
+            Toast.makeText(this, names[which] + " applied to browser controls", Toast.LENGTH_SHORT).show()
+        }.setNegativeButton("Cancel", null).show()
+    }
+
+    private fun showDataControl() {
+        val labels = arrayOf("Data saver mode", "Load images", "Allow autoplay")
+        val checked = booleanArrayOf(prefs.getBoolean("data_saver", false), prefs.getBoolean("load_images", true), prefs.getBoolean("autoplay", false))
+        AlertDialog.Builder(this).setTitle("EXSTRA DATA CONTROL").setMultiChoiceItems(labels, checked) { _, which, value ->
+            val keys = arrayOf("data_saver", "load_images", "autoplay")
+            prefs.edit().putBoolean(keys[which], value).apply()
+        }.setPositiveButton("Apply") { _, _ ->
+            web.settings.loadsImagesAutomatically = prefs.getBoolean("load_images", true)
+            web.settings.mediaPlaybackRequiresUserGesture = !prefs.getBoolean("autoplay", false)
+            Toast.makeText(this, "Data settings applied", Toast.LENGTH_SHORT).show()
+        }.setNegativeButton("Cancel", null).show()
+    }
+
+    private fun showModules() {
+        val names = arrayOf("Bookmarks", "Downloads", "Command console", "Rewind", "Data Control", "Skins")
+        val checked = BooleanArray(names.size) { prefs.getBoolean("module_" + names[it], true) }
+        AlertDialog.Builder(this).setTitle("EXSTRA MODULES").setMultiChoiceItems(names, checked) { _, which, value ->
+            prefs.edit().putBoolean("module_" + names[which], value).apply()
+        }.setPositiveButton("Save", null).show()
+    }
+
+    private fun showTabGroups() {
+        val names = arrayOf("Work", "Study", "Personal", "Entertainment")
+        val groups = prefs.getStringSet("tab_groups", emptySet())?.toMutableSet() ?: mutableSetOf()
+        AlertDialog.Builder(this).setTitle("Assign current tab to group").setItems(names) { _, which ->
+            groups.removeAll { it.endsWith("|" + current) }
+            groups.add(names[which] + "|" + current)
+            prefs.edit().putStringSet("tab_groups", groups).apply()
+            Toast.makeText(this, "Tab added to " + names[which], Toast.LENGTH_SHORT).show()
+        }.setNeutralButton("Show groups") { _, _ ->
+            val rows = groups.map { it.replace("|", " · tab ") }.toTypedArray()
+            AlertDialog.Builder(this).setTitle("Tab groups").setItems(rows, null).setPositiveButton("OK", null).show()
+        }.setNegativeButton("Close", null).show()
+    }
     private fun saveBookmark() {
         val url = web.url ?: return
         val bookmarks = prefs.getStringSet("bookmarks", emptySet())?.toMutableSet() ?: mutableSetOf()
