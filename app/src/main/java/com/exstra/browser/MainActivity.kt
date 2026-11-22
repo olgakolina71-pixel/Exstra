@@ -114,14 +114,14 @@ class MainActivity : Activity() {
             CookieManager.getInstance().setAcceptCookie(true)
             if (android.os.Build.VERSION.SDK_INT >= 21) CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
             webViewClient = object : WebViewClient() {
-                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) { address.setText(url.orEmpty()); this@MainActivity.this@MainActivity.progress.setVisibility(android.view.View.VISIBLE) }
+                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) { address.setText(url.orEmpty()); this@MainActivity.progress.setVisibility(android.view.View.VISIBLE) }
                 override fun onPageFinished(view: WebView?, url: String?) {
                     this@MainActivity.progress.setVisibility(android.view.View.GONE); address.setText(url.orEmpty())
                     if (url != null && url.startsWith("http")) { history.remove(url); history.add(url); if (history.size > 100) history.removeAt(0); prefs.edit().putString("history", history.joinToString("\n")).apply(); refreshHome() }
                     syncTabs()
                 }
             }
-            webChromeClient = object : WebChromeClient() { override fun onProgressChanged(view: WebView?, value: Int) { this@MainActivity.this@MainActivity.progress.setProgress(value); this@MainActivity.progress.setVisibility(if (value >= 100) android.view.View.GONE else android.view.View.VISIBLE) } }
+            webChromeClient = object : WebChromeClient() { override fun onProgressChanged(view: WebView?, value: Int) { this@MainActivity.progress.setProgress(value); this@MainActivity.progress.setVisibility(if (value >= 100) android.view.View.GONE else android.view.View.VISIBLE) } }
             setDownloadListener(DownloadListener { url, ua, disposition, mime, _ ->
                 val file = URLUtil.guessFileName(url, disposition, mime)
                 val request = DownloadManager.Request(Uri.parse(url)).setMimeType(mime).addRequestHeader("User-Agent", ua).setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED).setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, file)
