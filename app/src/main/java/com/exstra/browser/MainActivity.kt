@@ -29,7 +29,7 @@ class MainActivity : Activity() {
     private lateinit var address: EditText
     private lateinit var web: WebView
     private lateinit var tabLabel: TextView
-    private lateinit var progress: android.widget.ProgressBar
+    private lateinit var loadingBar: android.widget.ProgressBar
     private val tabs = mutableListOf<String>()
     private var current = 0
     private var engine = "Google"
@@ -112,7 +112,6 @@ class MainActivity : Activity() {
             background = null
             imeOptions = EditorInfo.IME_ACTION_GO
             setPadding(dp(4), 0, dp(4), 0)
-            selectAllOnFocus = true
         }
         addressRow.addView(address, LinearLayout.LayoutParams(0, dp(46), 1f))
         val engineButton = smallAction("⌄") { showEngines(it) }
@@ -120,13 +119,13 @@ class MainActivity : Activity() {
         header.addView(addressRow, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
         root.addView(header)
 
-        progress = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+        loadingBar = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
-            progress = 0
+            this.progress = 0
             progressTintList = android.content.res.ColorStateList.valueOf(accent)
             progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
         }
-        root.addView(progress, LinearLayout.LayoutParams(-1, dp(2)))
+        root.addView(loadingBar, LinearLayout.LayoutParams(-1, dp(2)))
 
         web = WebView(this).apply {
             setBackgroundColor(Color.WHITE)
@@ -143,13 +142,13 @@ class MainActivity : Activity() {
                 override fun onPageFinished(view: WebView?, url: String?) {
                     address.setText(url.orEmpty())
                     updateTab()
-                    progress.progress = 100
+                    loadingBar.progress = 100
                 }
             }
             webChromeClient = object : WebChromeClient() {
                 override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                    progress.progress = newProgress
-                    progress.visibility = if (newProgress >= 100) android.view.View.GONE else android.view.View.VISIBLE
+                    loadingBar.progress = newProgress
+                    loadingBar.visibility = if (newProgress >= 100) android.view.View.GONE else android.view.View.VISIBLE
                 }
             }
             setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
