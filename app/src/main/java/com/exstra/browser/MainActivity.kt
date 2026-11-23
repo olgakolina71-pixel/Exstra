@@ -178,7 +178,20 @@ class MainActivity : Activity() {
         val recent = history.takeLast(4).reversed()
         if (prefs.getBoolean("home_recent",true)) { if (recent.isEmpty()) page.addView(TextView(this).apply { text = "Тут появятся недавно открытые сайты."; textSize = 13f; setTextColor(c("muted")); background = rounded(c("surface"),15,c("line")); setPadding(dp(14),dp(14),dp(14),dp(14)) }) else recent.forEach { page.addView(historyRow(it)) } }
         if (prefs.getBoolean("home_tools",true)) section(page, "Возможности EXSTRA", null) {}
-        if (prefs.getBoolean("home_tools",true)) { listOf(\n            tool("✦", "EXSTRA AI", "Офлайн-помощник и управление моделями") { aiAssistant() },\n            tool("⌘", "EXSTRA COMMAND", "Команды браузера") { command() },\n            tool("◷", "EXSTRA REWIND", "Сохранённые сессии") { rewind() },\n            tool("⇩", "EXSTRA DROP", "Ссылки на потом") { showDrop() },\n            tool("◉", "EXSTRA RADAR", "Состояние страницы и соединения") { radar() },\n            tool("⚙", "Настройки", "Внешний вид, жесты и приватность") { settings() },\n            tool("✦", "Настроить главную", "Скрыть или показать блоки") { customizeHome() }\n        ).forEach { card -> page.addView(card, LinearLayout.LayoutParams(-1,-2).apply { topMargin = dp(8) }) } }
+        if (prefs.getBoolean("home_tools",true)) {
+            val cards = listOf(
+                tool("✦", "EXSTRA AI", "Офлайн-помощник и управление моделями") { aiAssistant() },
+                tool("⌘", "EXSTRA COMMAND", "Команды браузера") { command() },
+                tool("◷", "EXSTRA REWIND", "Сохранённые сессии") { rewind() },
+                tool("⇩", "EXSTRA DROP", "Ссылки на потом") { showDrop() },
+                tool("◉", "EXSTRA RADAR", "Состояние страницы и соединения") { radar() },
+                tool("⚙", "Настройки", "Внешний вид, жесты и приватность") { settings() },
+                tool("✦", "Настроить главную", "Скрыть или показать блоки") { customizeHome() }
+            )
+            cards.forEach { card ->
+                page.addView(card, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+            }
+        } }
         return page
     }
 
