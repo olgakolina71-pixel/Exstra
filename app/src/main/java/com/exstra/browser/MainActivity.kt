@@ -191,7 +191,7 @@ class MainActivity : Activity() {
             cards.forEach { card ->
                 page.addView(card, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
             }
-        } }
+        }
         return page
     }
 
