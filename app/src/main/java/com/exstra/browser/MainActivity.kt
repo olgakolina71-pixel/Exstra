@@ -178,7 +178,7 @@ class MainActivity : Activity() {
         val recent = history.takeLast(4).reversed()
         if (prefs.getBoolean("home_recent",true)) { if (recent.isEmpty()) page.addView(TextView(this).apply { text = "Тут появятся недавно открытые сайты."; textSize = 13f; setTextColor(c("muted")); background = rounded(c("surface"),15,c("line")); setPadding(dp(14),dp(14),dp(14),dp(14)) }) else recent.forEach { page.addView(historyRow(it)) } }
         if (prefs.getBoolean("home_tools",true)) section(page, "Возможности EXSTRA", null) {}
-        if (prefs.getBoolean("home_tools",true)) { page.addView(tool("⌘", "EXSTRA COMMAND", "Команды браузера") { command() }); page.addView(tool("◷", "EXSTRA REWIND", "Сохранённые сессии") { rewind() }); page.addView(tool("⇩", "EXSTRA DROP", "Ссылки на потом") { showDrop() }); page.addView(tool("◉", "EXSTRA RADAR", "Состояние страницы и соединения") { radar() }); page.addView(tool("⚙", "Настройки", "Внешний вид, жесты и приватность") { settings() }); page.addView(tool("✦", "Настроить главную", "Скрыть или показать блоки") { customizeHome() }) }
+        if (prefs.getBoolean("home_tools",true)) { listOf(\n            tool("✦", "EXSTRA AI", "Офлайн-помощник и управление моделями") { aiAssistant() },\n            tool("⌘", "EXSTRA COMMAND", "Команды браузера") { command() },\n            tool("◷", "EXSTRA REWIND", "Сохранённые сессии") { rewind() },\n            tool("⇩", "EXSTRA DROP", "Ссылки на потом") { showDrop() },\n            tool("◉", "EXSTRA RADAR", "Состояние страницы и соединения") { radar() },\n            tool("⚙", "Настройки", "Внешний вид, жесты и приватность") { settings() },\n            tool("✦", "Настроить главную", "Скрыть или показать блоки") { customizeHome() }\n        ).forEach { card -> page.addView(card, LinearLayout.LayoutParams(-1,-2).apply { topMargin = dp(8) }) } }
         return page
     }
 
@@ -249,8 +249,8 @@ class MainActivity : Activity() {
             }.show()
     }
     private fun showMenu(anchor: TextView) {
-        val p=PopupMenu(this,anchor); listOf("Закладки","История","Загрузки","EXSTRA DROP","EXSTRA RADAR","Quick Tools","EXSTRA FOCUS","Поисковик","EXSTRA COMMAND","EXSTRA REWIND","Настройки","О браузере").forEach { p.menu.add(it) }
-        p.setOnMenuItemClickListener { item -> when(item.title.toString()) { "Закладки"->bookmarks(); "История"->showHistory(); "Загрузки"->downloads(); "Поисковик"->chooseEngine(); "EXSTRA DROP"->showDrop(); "EXSTRA RADAR"->radar(); "Quick Tools"->quickTools(); "EXSTRA FOCUS"->toggleFocus(); "EXSTRA COMMAND"->command(); "EXSTRA REWIND"->rewind(); "Настройки"->settings(); "О браузере"->about() }; true }; p.show()
+        val p=PopupMenu(this,anchor); listOf("Закладки","История","Загрузки","EXSTRA DROP","EXSTRA RADAR","Quick Tools","EXSTRA FOCUS","Поисковик","EXSTRA AI","EXSTRA COMMAND","EXSTRA REWIND","Настройки","О браузере").forEach { p.menu.add(it) }
+        p.setOnMenuItemClickListener { item -> when(item.title.toString()) { "Закладки"->bookmarks(); "История"->showHistory(); "Загрузки"->downloads(); "Поисковик"->chooseEngine(); "EXSTRA AI"->aiAssistant(); "EXSTRA DROP"->showDrop(); "EXSTRA RADAR"->radar(); "Quick Tools"->quickTools(); "EXSTRA FOCUS"->toggleFocus(); "EXSTRA COMMAND"->command(); "EXSTRA REWIND"->rewind(); "Настройки"->settings(); "О браузере"->about() }; true }; p.show()
     }
     private fun chooseEngine() { val names=engines.keys.toTypedArray(); AlertDialog.Builder(this).setTitle("Поисковик").setSingleChoiceItems(names,names.indexOf(engine).coerceAtLeast(0)) { d,i -> engine=names[i]; prefs.edit().putString("engine",engine).apply(); d.dismiss(); toast("Выбран "+engine) }.setNegativeButton("Отмена",null).show() }
     private fun addSite() {
@@ -280,7 +280,92 @@ class MainActivity : Activity() {
             when(p[0].lowercase()){ "open"->if(arg.isNotBlank())open(if(arg.contains(".")&&!arg.contains(" "))if(arg.startsWith("http"))arg else "https://"+arg else engines[engine]+Uri.encode(arg)); "search"->if(arg.isNotBlank())open(engines[engine]+Uri.encode(arg)); "back"->if(web.canGoBack())web.goBack(); "reload"->web.reload(); "home"->showHome(); "tabs"->showTabs(); "bookmark"->saveBookmark(); "drop"->saveDrop(); "focus"->toggleFocus(); "radar"->radar(); "tools"->quickTools(); "copy"->copyUrl(); "share"->shareUrl(); "help"->toast("open, search, back, reload, home, tabs, bookmark, drop, focus, radar, tools, copy, share"); else->toast("Неизвестная команда") }
         }.setNegativeButton("Отмена",null).show()
     }
-    private fun settings() {
+
+    private fun aiAssistant() {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(12), dp(18), dp(12))
+        }
+        panel.addView(TextView(this).apply {
+            text = "EXSTRA AI"
+            textSize = 22f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(c("text"))
+        })
+        panel.addView(TextView(this).apply {
+            text = "Локальный помощник · без облачного сервера"
+            textSize = 13f
+            setTextColor(c("muted"))
+            setPadding(0, dp(4), 0, dp(14))
+        })
+        val status = TextView(this).apply {
+            text = "Модель пока не установлена"
+            textSize = 14f
+            setTextColor(c("text"))
+            background = rounded(c("surface2"), 14)
+            setPadding(dp(14), dp(14), dp(14), dp(14))
+        }
+        panel.addView(status, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+        panel.addView(button("Управление моделями", c("surface2")) { modelManager(status) },
+            LinearLayout.LayoutParams(-1, dp(46)).apply { bottomMargin = dp(12) })
+        val chatPreview = TextView(this).apply {
+            text = "Чат будет работать прямо на устройстве после подключения локального движка.\n\nПлан: GGUF-модель → llama.cpp → Android JNI. Модель хранится в памяти телефона, сервер не нужен."
+            textSize = 13f
+            setTextColor(c("muted"))
+            background = rounded(c("surface"), 16, c("line"))
+            setPadding(dp(14), dp(14), dp(14), dp(14))
+        }
+        panel.addView(chatPreview, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+        val input = EditText(this).apply {
+            hint = "Написать сообщение…"
+            setSingleLine()
+            setTextColor(c("text"))
+            setHintTextColor(c("muted"))
+            background = rounded(c("surface"), 14, c("line"))
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            isEnabled = false
+        }
+        panel.addView(input, LinearLayout.LayoutParams(-1, dp(48)))
+        AlertDialog.Builder(this).setView(panel).setPositiveButton("Закрыть", null).show()
+    }
+
+    private fun modelManager(status: TextView) {
+        val modelDir = getExternalFilesDir("models")
+        val existing = modelDir?.listFiles()?.filter { it.extension.equals("gguf", true) }.orEmpty()
+        val options = arrayOf("Выбрать GGUF-файл", "Открыть папку моделей", "О модели и совместимости")
+        AlertDialog.Builder(this).setTitle("EXSTRA AI · Модели")
+            .setItems(options) { _, index ->
+                when (index) {
+                    0 -> {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT).apply {
+                            type = "*/*"
+                            addCategory(android.content.Intent.CATEGORY_OPENABLE)
+                        }
+                        startActivityForResult(intent, 7101)
+                    }
+                    1 -> {
+                        val names = existing.map { it.name + " · " + android.text.format.Formatter.formatFileSize(this, it.length()) }.toTypedArray()
+                        if (names.isEmpty()) toast("Папка моделей пока пустая")
+                        else AlertDialog.Builder(this).setTitle("Модели на устройстве").setItems(names, null).setPositiveButton("ОК", null).show()
+                    }
+                    2 -> AlertDialog.Builder(this).setTitle("Поддержка моделей")
+                        .setMessage("На первом этапе выбираем компактные GGUF-модели. Сам файл можно хранить на телефоне. Для запуска потребуется встроить llama.cpp Android runtime; сейчас интерфейс подготовлен, но генерация ещё не подключена.")
+                        .setPositiveButton("Понятно", null).show()
+                }
+            }.show()
+    }
+
+    @Deprecated("Use Activity Result API in a future refactor")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 7101 && resultCode == RESULT_OK && data?.data != null) {
+            val uri = data.data!!
+            val name = uri.lastPathSegment ?: "выбранный файл"
+            prefs.edit().putString("selected_model_uri", uri.toString()).apply()
+            toast("Файл выбран: $name. Для запуска нужен runtime llama.cpp.")
+        }
+    }
+\n    private fun settings() {
         val labels=arrayOf("Тёмная тема","Загружать картинки","Автовоспроизведение","Сохранять вкладки","Очистить историю","Режим фокуса","Настроить главную","Панель Quick Tools")
         val checked=booleanArrayOf(dark,prefs.getBoolean("images",true),prefs.getBoolean("autoplay",false),prefs.getBoolean("save_session",true),false,focusMode,false,true)
         AlertDialog.Builder(this).setTitle("Настройки EXSTRA").setMultiChoiceItems(labels,checked) { _,i,v ->
