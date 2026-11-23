@@ -378,7 +378,8 @@ class MainActivity : Activity() {
             toast("Файл выбран: $name. Для запуска нужен runtime llama.cpp.")
         }
     }
-\n    private fun settings() {
+
+    private fun settings() {
         val labels=arrayOf("Тёмная тема","Загружать картинки","Автовоспроизведение","Сохранять вкладки","Очистить историю","Режим фокуса","Настроить главную","Панель Quick Tools")
         val checked=booleanArrayOf(dark,prefs.getBoolean("images",true),prefs.getBoolean("autoplay",false),prefs.getBoolean("save_session",true),false,focusMode,false,true)
         AlertDialog.Builder(this).setTitle("Настройки EXSTRA").setMultiChoiceItems(labels,checked) { _,i,v ->
